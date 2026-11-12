@@ -1,0 +1,7 @@
+{
+  "name": "the-player-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Solo Leveling-inspired personal quest dashboard backed by Notion",
+  "engines": { "node": ">=20" }
+}

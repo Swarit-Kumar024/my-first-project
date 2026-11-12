@@ -16,9 +16,10 @@ A Solo Leveling-inspired personal quest dashboard. The existing dark HUD fronten
    - `NOTION_QUESTS_DATA_SOURCE_ID` — `769316a2-5dc2-4eb0-9a4e-9c7c66aecdeb`
    - `NOTION_HABITS_DATA_SOURCE_ID` — `a4045c8b-2b5a-4597-828d-ed9cb2b14591`
    - `NOTION_PROFILE_PAGE_ID` — `41559d34-792d-81a1-be69-cd4fdafadd48`
+   - `NOTION_SHADOWS_DATA_SOURCE_ID` — `6cf1ea27-6f99-47e8-a9e3-a25d648486d0`
 4. Redeploy after adding variables.
 
-Do not put the integration token in `index.html`, frontend JavaScript, or GitHub.
+Do not put the integration token in `index.html`, frontend JavaScript, or GitHub. Keep the Vercel deployment private or enable deployment protection before using it; the API is intended for your personal dashboard.
 
 ## API
 
@@ -28,6 +29,7 @@ Do not put the integration token in `index.html`, frontend JavaScript, or GitHub
 - `GET /api/habits` — list active habits.
 - `POST /api/habits` — add a habit.
 - `GET /api/profile` — read the Notion profile rollups and formulas.
+- `GET /api/shadows` — read the Shadow Army records.
 
 Notion remains the source of truth. XP, Gold, Level, rank, and completion metrics are read from the profile's existing Notion formulas/rollups. Habit check-ins do not award XP. The frontend currently displays habits as a tracker list; completion history/check-ins are not implemented in the Notion schema.
 

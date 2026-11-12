@@ -38,7 +38,7 @@ button,input,select{font:inherit}button{cursor:pointer}.shell{max-width:1180px;m
 <div class="toast" id="toast"></div>
 <script>
 const XP={Easy:10,Medium:25,Hard:50,Boss:100};
-let state={quests:[],habits:[],profile:null};
+let state={quests:[],habits:[],profile:null,shadows:[]};
 const api=async(path,options={})=>{const r=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Could not reach the system API");return d};
 function notify(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200)}
 function open(id){document.getElementById(id).classList.add('open')}function close(){document.querySelectorAll('.modal-backdrop').forEach(x=>x.classList.remove('open'))}
@@ -71,10 +71,13 @@ function render(){
  const h=document.getElementById('habits');h.innerHTML='';
  if(!state.habits.length)h.innerHTML='<div class="empty">No active habits. Add one to your tracker.</div>';
  state.habits.forEach(item=>{const row=document.createElement('div');row.className='habit-row';const label=document.createElement('label');label.textContent=item.title;const tag=document.createElement('span');tag.className='muted';tag.style.fontSize='10px';tag.textContent=item.frequency||'Daily';row.append(label,tag);h.append(row)});
+ const army=document.querySelector('.shadow-list');army.innerHTML='';
+ if(!state.shadows.length)army.innerHTML='<div class="empty">No shadows found in the Notion Shadow Army.</div>';
+ state.shadows.forEach(item=>{const row=document.createElement('div');row.className='shadow';const info=document.createElement('div');const name=document.createElement('b');name.textContent=item.name;const detail=document.createElement('small');detail.textContent=item.specialisation+' · '+item.ability;info.append(name,detail);const meta=document.createElement('em');meta.textContent=item.rank+' · LV '+item.level;row.append(info,meta);army.append(row)});
 }
 async function refresh(){
- const [q,h,p]=await Promise.all([api('/api/quests'),api('/api/habits'),api('/api/profile')]);
- state.quests=q.quests||[];state.habits=h.habits||[];state.profile=p.profile||null;render();
+ const [q,h,p,s]=await Promise.all([api('/api/quests'),api('/api/habits'),api('/api/profile'),api('/api/shadows')]);
+ state.quests=q.quests||[];state.habits=h.habits||[];state.profile=p.profile||null;state.shadows=s.shadows||[];render();
 }
 document.getElementById('addQuest').onclick=()=>open('questModal');document.getElementById('addHabit').onclick=()=>open('habitModal');
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);document.querySelectorAll('.modal-backdrop').forEach(b=>b.onclick=e=>{if(e.target===b)close()});

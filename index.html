@@ -37,21 +37,50 @@ button,input,select{font:inherit}button{cursor:pointer}.shell{max-width:1180px;m
 <div class="modal-backdrop" id="habitModal"><form class="modal" id="habitForm"><h3>ADD HABIT</h3><div class="field"><label for="habitTitle">HABIT NAME</label><input id="habitTitle" maxlength="70" required placeholder="e.g. Read for 15 minutes"></div><div class="modal-actions"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Add habit</button></div></form></div>
 <div class="toast" id="toast"></div>
 <script>
-const KEY='player-system-v1',XP={Easy:10,Medium:25,Hard:50,Boss:100};
-const starter=[{id:'q1',title:'Plan the day and choose top priorities',difficulty:'Easy',done:false},{id:'q2',title:'Focused study / learning session',difficulty:'Medium',done:false},{id:'q3',title:'Practice a skill for 30 minutes',difficulty:'Medium',done:false}];
-let state=load();
-function load(){try{const v=JSON.parse(localStorage.getItem(KEY));if(v&&Array.isArray(v.quests)&&Array.isArray(v.habits))return v}catch(e){}return{quests:starter,habits:[{id:'h1',title:'Drink water regularly',done:false},{id:'h2',title:'Move or stretch',done:false},{id:'h3',title:'Read / learn something',done:false}]}}
-function save(){localStorage.setItem(KEY,JSON.stringify(state));render()}
-function totals(){const cleared=state.quests.filter(q=>q.done);const xp=cleared.reduce((s,q)=>s+(XP[q.difficulty]||0),0);return{xp,cleared:cleared.length,total:state.quests.length,rate:state.quests.length?Math.round(cleared.length/state.quests.length*100):0}}
-function rankFor(l){return l<=5?'E-RANK':l<=10?'D-RANK':l<=20?'C-RANK':l<=35?'B-RANK':l<=50?'A-RANK':'S-RANK'}
-function render(){const t=totals(),level=Math.floor(t.xp/1000)+1,into=t.xp%1000;document.getElementById('level').textContent=String(level).padStart(2,'0');document.getElementById('rank').textContent=rankFor(level)+' HUNTER';document.getElementById('xpText').textContent=into.toLocaleString()+' / 1,000 XP';document.getElementById('xpBar').style.width=(into/10)+'%';document.getElementById('totalXp').textContent=t.xp.toLocaleString();document.getElementById('gold').textContent=t.xp.toLocaleString()+' ◈';document.getElementById('cleared').textContent=t.cleared;document.getElementById('rate').textContent=t.rate+'%';
-const q=document.getElementById('quests');q.innerHTML='';if(!state.quests.length)q.innerHTML='<div class="empty">No quests yet. Add your first quest to begin.</div>';state.quests.forEach(item=>{const el=document.createElement('div');el.className='quest'+(item.done?' done':'');const check=document.createElement('button');check.className='check';check.setAttribute('aria-pressed',String(item.done));check.setAttribute('aria-label',item.done?'Quest completed':'Complete quest');check.textContent=item.done?'✓':'';check.onclick=()=>{item.done=!item.done;save();notify(item.done?'Quest cleared · +'+XP[item.difficulty]+' XP':'Quest reopened')};const info=document.createElement('div');const title=document.createElement('div');title.className='qtitle';title.textContent=item.title;const meta=document.createElement('div');meta.className='qmeta';meta.textContent=item.done?'CLEARED':'ACTIVE QUEST';info.append(title,meta);const xp=document.createElement('div');xp.className='xp-tag';xp.textContent='+'+XP[item.difficulty]+' XP';const diff=document.createElement('div');diff.className='difficulty';diff.textContent=item.difficulty.toUpperCase();el.append(check,info,xp,diff);q.append(el)});
-const h=document.getElementById('habits');h.innerHTML='';state.habits.forEach(item=>{const row=document.createElement('div');row.className='habit-row';const label=document.createElement('label');label.textContent=item.title;const input=document.createElement('input');input.type='checkbox';input.checked=!!item.done;input.onchange=()=>{item.done=input.checked;localStorage.setItem(KEY,JSON.stringify(state))};row.append(label,input);h.append(row)})}
-function notify(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1900)}
+const XP={Easy:10,Medium:25,Hard:50,Boss:100};
+let state={quests:[],habits:[],profile:null};
+const api=async(path,options={})=>{const r=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"Could not reach the system API");return d};
+function notify(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200)}
 function open(id){document.getElementById(id).classList.add('open')}function close(){document.querySelectorAll('.modal-backdrop').forEach(x=>x.classList.remove('open'))}
-document.getElementById('addQuest').onclick=()=>open('questModal');document.getElementById('addHabit').onclick=()=>open('habitModal');document.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);document.querySelectorAll('.modal-backdrop').forEach(b=>b.onclick=e=>{if(e.target===b)close()});
-document.getElementById('questForm').onsubmit=e=>{e.preventDefault();state.quests.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),title:document.getElementById('questTitle').value.trim(),difficulty:document.getElementById('questDifficulty').value,done:false});e.target.reset();close();save();notify('Quest registered')};
-document.getElementById('habitForm').onsubmit=e=>{e.preventDefault();state.habits.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),title:document.getElementById('habitTitle').value.trim(),done:false});e.target.reset();close();save();notify('Habit added')};
-document.getElementById('today').textContent=new Intl.DateTimeFormat(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).format(new Date()).toUpperCase();render();
+function rankFor(level){return level<=5?'E-RANK':level<=10?'D-RANK':level<=20?'C-RANK':level<=35?'B-RANK':level<=50?'A-RANK':'S-RANK'}
+function render(){
+ const p=state.profile||{}, quests=state.quests;
+ const localXp=quests.filter(q=>q.done).reduce((s,q)=>s+(Number(q.xpValue)||XP[q.difficulty]||0),0);
+ const level=Number(p.level)||Math.floor((Number(p.totalXp)||localXp)/1000)+1;
+ document.getElementById('level').textContent=String(level).padStart(2,'0');
+ document.getElementById('rank').textContent=(p.rank||rankFor(level)).toString().toUpperCase()+' HUNTER';
+ document.getElementById('playerName').textContent=p.name||'SWARIT';
+ const into=Number(p.xpIntoLevel)||((Number(p.totalXp)||localXp)%1000);
+ document.getElementById('xpText').textContent=into.toLocaleString()+' / 1,000 XP';
+ document.getElementById('xpBar').style.width=Math.max(0,Math.min(100,into/10))+'%';
+ document.getElementById('totalXp').textContent=(p.totalXp??localXp).toLocaleString();
+ document.getElementById('gold').textContent=(p.gold??localXp).toLocaleString()+' ◈';
+ const cleared=Number(p.cleared)||quests.filter(q=>q.done).length;
+ document.getElementById('cleared').textContent=cleared;
+ document.getElementById('rate').textContent=(p.completionRate??(quests.length?Math.round(cleared/quests.length*100):0))+'%';
+ const q=document.getElementById('quests');q.innerHTML='';
+ if(!quests.length)q.innerHTML='<div class="empty">No quests for today. Add your first quest to begin.</div>';
+ quests.forEach(item=>{
+  const el=document.createElement('div');el.className='quest'+(item.done?' done':'');
+  const check=document.createElement('button');check.className='check';check.setAttribute('aria-pressed',String(item.done));check.setAttribute('aria-label',item.done?'Quest completed':'Complete quest');check.textContent=item.done?'✓':'';
+  check.onclick=async()=>{check.disabled=true;try{await api('/api/quests',{method:'PATCH',body:JSON.stringify({id:item.id,completed:!item.done})});await refresh();notify(item.done?'Quest reopened':'Quest cleared · XP updated in Notion')}catch(e){notify(e.message);check.disabled=false}};
+  const info=document.createElement('div'),title=document.createElement('div'),meta=document.createElement('div');title.className='qtitle';title.textContent=item.title;meta.className='qmeta';meta.textContent=(item.done?'CLEARED':'ACTIVE QUEST')+' · '+(item.type||'Daily');info.append(title,meta);
+  const xp=document.createElement('div');xp.className='xp-tag';xp.textContent='+'+(item.xpValue||XP[item.difficulty]||25)+' XP';
+  const diff=document.createElement('div');diff.className='difficulty';diff.textContent=(item.difficulty||'Medium').toUpperCase();el.append(check,info,xp,diff);q.append(el);
+ });
+ const h=document.getElementById('habits');h.innerHTML='';
+ if(!state.habits.length)h.innerHTML='<div class="empty">No active habits. Add one to your tracker.</div>';
+ state.habits.forEach(item=>{const row=document.createElement('div');row.className='habit-row';const label=document.createElement('label');label.textContent=item.title;const tag=document.createElement('span');tag.className='muted';tag.style.fontSize='10px';tag.textContent=item.frequency||'Daily';row.append(label,tag);h.append(row)});
+}
+async function refresh(){
+ const [q,h,p]=await Promise.all([api('/api/quests'),api('/api/habits'),api('/api/profile')]);
+ state.quests=q.quests||[];state.habits=h.habits||[];state.profile=p.profile||null;render();
+}
+document.getElementById('addQuest').onclick=()=>open('questModal');document.getElementById('addHabit').onclick=()=>open('habitModal');
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);document.querySelectorAll('.modal-backdrop').forEach(b=>b.onclick=e=>{if(e.target===b)close()});
+document.getElementById('questForm').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button[type="submit"],button:not([type])');btn.disabled=true;try{await api('/api/quests',{method:'POST',body:JSON.stringify({title:document.getElementById('questTitle').value.trim(),difficulty:document.getElementById('questDifficulty').value})});e.target.reset();close();await refresh();notify('Quest registered in Notion')}catch(err){notify(err.message)}finally{btn.disabled=false}};
+document.getElementById('habitForm').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button[type="submit"],button:not([type])');btn.disabled=true;try{await api('/api/habits',{method:'POST',body:JSON.stringify({title:document.getElementById('habitTitle').value.trim()})});e.target.reset();close();await refresh();notify('Habit saved in Notion')}catch(err){notify(err.message)}finally{btn.disabled=false}};
+document.getElementById('today').textContent=new Intl.DateTimeFormat(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).format(new Date()).toUpperCase();
+refresh().catch(e=>{document.getElementById('quests').innerHTML='<div class="empty">SYSTEM CONNECTION REQUIRED<br><small>Set the Notion environment variables in Vercel, then reload. '+e.message.replace(/[<>&"]/g,'')+'</small></div>';notify('Notion connection is not configured yet')});
 </script>
 </body></html>
